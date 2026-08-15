@@ -20,7 +20,10 @@ export function AddCustomer({ navigate }: Props) {
     gender: '',
     notes: '',
     start_date: toISODate(new Date()),
+    plan: 'basic' as 'basic' | 'prime',
+    prime_enabled: false,
   });
+  const [showPrimeToggle, setShowPrimeToggle] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<{ customer: Customer; membership: Membership } | null>(null);
 
@@ -63,6 +66,9 @@ export function AddCustomer({ navigate }: Props) {
           membership_id: membershipId,
           start_date: form.start_date,
           expiry_date: expiryDate,
+          plan: form.plan,
+          status: 'active',
+          prime_enabled: form.prime_enabled,
         })
         .select()
         .single();
@@ -212,6 +218,52 @@ export function AddCustomer({ navigate }: Props) {
               onChange={e => update('start_date', e.target.value)}
             />
           </div>
+        </div>
+
+        {/* Membership Plan */}
+        <div className="rounded-lg bg-slate-50 p-4">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">Membership Plan</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => { setForm(prev => ({ ...prev, plan: 'basic' })); setShowPrimeToggle(false); }}
+              className={`rounded-xl border-2 p-4 text-left transition-all ${
+                form.plan === 'basic'
+                  ? 'border-pharmos-500 bg-pharmos-50'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <p className="text-sm font-bold text-slate-800">₹99 Basic</p>
+              <p className="mt-0.5 text-xs text-slate-500">View health records only</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setForm(prev => ({ ...prev, plan: 'prime', prime_enabled: true })); setShowPrimeToggle(true); }}
+              className={`rounded-xl border-2 p-4 text-left transition-all ${
+                form.plan === 'prime'
+                  ? 'border-gold-400 bg-gold-50'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <p className="text-sm font-bold text-slate-800">₹199 Pharmos Prime</p>
+              <p className="mt-0.5 text-xs text-slate-500">View + Upload personal documents</p>
+            </button>
+          </div>
+
+          {form.plan === 'prime' && (
+            <label className="mt-3 flex items-center justify-between rounded-lg border border-gold-200 bg-white p-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Pharmos Prime Enabled</p>
+                <p className="text-xs text-slate-400">Immediately available to member after login</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={form.prime_enabled}
+                onChange={e => setForm(prev => ({ ...prev, prime_enabled: e.target.checked }))}
+                className="h-5 w-5 rounded border-slate-300 text-pharmos-600 focus:ring-pharmos-500"
+              />
+            </label>
+          )}
         </div>
 
         <div>

@@ -8,6 +8,8 @@ import {
   Check,
   X,
   ArrowRight,
+  Eye,
+  FilePlus2,
 } from 'lucide-react';
 import { usePortalData } from '@/customer/usePortalData';
 import { useCustomerAuth } from '@/lib/customer-auth';
@@ -33,8 +35,10 @@ export function CustomerDashboard({ navigate }: Props) {
     );
   }
 
-  const { membership, medicine_purchases, bp_records, sugar_records, ecg_records } = data;
+  const { membership, medicine_purchases, bp_records, sugar_records, ecg_records, member_documents } = data;
   const memStatus = membershipStatus(membership?.expiry_date ?? null);
+  const isPrime = !!membership?.prime_enabled;
+  const planLabel = isPrime ? 'Pharmos Prime' : 'Basic Membership';
   const now = new Date();
   const monthMeds = medicine_purchases.filter(p => {
     const d = new Date(p.purchase_date);
@@ -51,6 +55,7 @@ export function CustomerDashboard({ navigate }: Props) {
     { label: 'My Medicines', value: String(medicine_purchases.length), icon: Pill, color: 'text-pharmos-600', bg: 'bg-pharmos-50', page: 'customer-medicines' },
     { label: "This Month's Medicines", value: String(monthMeds.length), icon: CalendarClock, color: 'text-gold-600', bg: 'bg-gold-50', page: 'customer-medicines' },
     { label: 'My Checkups', value: String(totalCheckups), icon: Activity, color: 'text-rose-600', bg: 'bg-rose-50', page: 'customer-checkups' },
+    ...(isPrime ? [{ label: 'Prime Documents', value: String(member_documents.length), icon: FilePlus2, color: 'text-gold-600', bg: 'bg-gold-50', page: 'customer-prime' as CustomerPage }] : []),
   ];
 
   return (
@@ -77,10 +82,32 @@ export function CustomerDashboard({ navigate }: Props) {
             <div className="mt-2 flex flex-wrap gap-4 text-sm">
               <div><span className="text-pharmos-100">Start: </span><span className="font-semibold">{formatDate(membership.start_date)}</span></div>
               <div><span className="text-pharmos-100">Expiry: </span><span className="font-semibold">{formatDate(membership.expiry_date)}</span></div>
+              <div>
+                <span className="text-pharmos-100">Plan: </span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${isPrime ? 'bg-gold-400/20 text-gold-100' : 'bg-white/15 text-white'}`}>
+                  {isPrime ? <FilePlus2 size={12} /> : <Eye size={12} />}
+                  {planLabel}
+                </span>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* View Only notice for Basic members */}
+      {!isPrime && (
+        <div className="flex items-center gap-3 rounded-2xl border border-pharmos-200 bg-pharmos-50 p-4">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-pharmos-100">
+            <Eye size={20} className="text-pharmos-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-pharmos-800">View Only — Your records are managed by Pharmos.</p>
+            <p className="text-xs text-pharmos-600">
+              Upgrade to Pharmos Prime to upload and manage your own health documents.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stat tiles */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

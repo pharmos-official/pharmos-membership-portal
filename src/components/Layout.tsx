@@ -11,6 +11,7 @@ import {
   X,
   Plus,
   Stethoscope,
+  LogOut,
 } from 'lucide-react';
 
 export type Page =
@@ -30,13 +31,17 @@ export type Page =
   | 'regular-customers'
   | 'checkup-history'
   | 'pending-checkups'
-  | 'medicines-due';
+  | 'medicines-due'
+  | 'admin-settings'
+  | 'admin-renewals';
 
 interface LayoutProps {
   page: Page;
   navigate: (page: Page, params?: Record<string, string>) => void;
   children: ReactNode;
   onSearch: (query: string) => void;
+  onLogout?: () => void;
+  adminName?: string | null;
 }
 
 const navGroups: { label: string; items: { page: Page; label: string; icon: typeof Users }[] }[] = [
@@ -73,9 +78,16 @@ const navGroups: { label: string; items: { page: Page; label: string; icon: type
     label: 'Insights',
     items: [{ page: 'reports', label: 'Reports', icon: BarChart3 }],
   },
+  {
+    label: 'Admin',
+    items: [
+      { page: 'admin-renewals', label: 'Expiry & Renewal', icon: CreditCard },
+      { page: 'admin-settings', label: 'Plans & Settings', icon: BarChart3 },
+    ],
+  },
 ];
 
-export function Layout({ page, navigate, children, onSearch }: LayoutProps) {
+export function Layout({ page, navigate, children, onSearch, onLogout, adminName }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -152,7 +164,19 @@ export function Layout({ page, navigate, children, onSearch }: LayoutProps) {
             </div>
           ))}
           <div className="mt-auto px-3 pt-6">
-            <p className="text-[10px] text-slate-400">PHARMOS v1.0 — Customer Health System</p>
+            {adminName && (
+              <p className="mb-2 truncate text-xs font-semibold text-slate-700">{adminName}</p>
+            )}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              >
+                <LogOut size={18} className="text-red-500" />
+                Logout
+              </button>
+            )}
+            <p className="mt-3 text-[10px] text-slate-400">PHARMOS v1.0 — Customer Health System</p>
           </div>
         </nav>
       </aside>

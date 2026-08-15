@@ -15,6 +15,7 @@ import { CheckupHistory } from '@/pages/CheckupHistory';
 import { PendingCheckups } from '@/pages/PendingCheckups';
 import { MedicinesDue } from '@/pages/MedicinesDue';
 import { CustomerAuthProvider, useCustomerAuth } from '@/lib/customer-auth';
+import { AdminAuthProvider, useAdminAuth } from '@/lib/admin-auth';
 import { CustomerLayout, type CustomerPage } from '@/customer/CustomerLayout';
 import { CustomerLogin } from '@/customer/CustomerLogin';
 import { CustomerDashboard } from '@/customer/CustomerDashboard';
@@ -27,6 +28,10 @@ import { CustomerEcg } from '@/customer/CustomerEcg';
 import { CustomerHistory } from '@/customer/CustomerHistory';
 import { CustomerProfile as CustomerPortalProfile } from '@/customer/CustomerProfile';
 import { CustomerChangePassword } from '@/customer/CustomerChangePassword';
+import { CustomerPrime } from '@/customer/CustomerPrime';
+import { CustomerRenewal } from '@/customer/CustomerRenewal';
+import { AdminSettings } from '@/pages/AdminSettings';
+import { AdminRenewals } from '@/pages/AdminRenewals';
 
 // ===== Hash routing for customer portal =====
 // Format: #/customer/login, #/customer/dashboard, #/customer/bp, etc.
@@ -42,6 +47,7 @@ function parseHash(): Route {
     'customer-dashboard', 'customer-membership', 'customer-medicines',
     'customer-checkups', 'customer-bp', 'customer-sugar', 'customer-ecg',
     'customer-history', 'customer-profile', 'customer-change-password',
+    'customer-prime',
   ];
   if (path === 'login') return { customer: 'customer-login' };
   const match = valid.find(v => v === `customer-${path}`);
@@ -54,7 +60,31 @@ function customerPath(page: CustomerPage | 'customer-login'): string {
   return `#/customer/${page.replace('customer-', '')}`;
 }
 
+function AdminAppShell() {
+  const { isAdmin, loading } = useAdminAuth();
+  const [showLogin, setShowLogin] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-pharmos-500" />
+          <p className="mt-3 text-sm text-slate-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Unified professional login page with Member/User + Admin tabs
+  if (!isAdmin && !showLogin) {
+    return <CustomerLogin navigate={() => { window.location.hash = '#/customer/dashboard'; }} onAdminLogin={() => setShowLogin(true)} />;
+  }
+
+  return <AdminApp />;
+}
+
 function AdminApp() {
+  const { logout, adminName } = useAdminAuth();
   const [page, setPage] = useState<Page>('dashboard');
   const [params, setParams] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +99,12 @@ function AdminApp() {
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.hash = '';
+    window.location.reload();
+  };
 
   const renderPage = () => {
     switch (page) {
@@ -106,13 +142,17 @@ function AdminApp() {
         return <PendingCheckups navigate={navigate} />;
       case 'medicines-due':
         return <MedicinesDue navigate={navigate} />;
+      case 'admin-settings':
+        return <AdminSettings />;
+      case 'admin-renewals':
+        return <AdminRenewals />;
       default:
         return <Dashboard navigate={navigate} onSearch={handleSearch} />;
     }
   };
 
   return (
-    <Layout page={page} navigate={navigate} onSearch={handleSearch}>
+    <Layout page={page} navigate={navigate} onSearch={handleSearch} onLogout={handleLogout} adminName={adminName}>
       {renderPage()}
       <ToastContainer />
     </Layout>
@@ -138,8 +178,8 @@ function CustomerApp() {
 
   // Not logged in → show login page (unless already on login)
   if (route === 'admin') {
-    // User navigated away from customer portal — show admin
-    return <AdminApp />;
+    // User navigated away from customer portal — show admin shell
+    return <AdminAppShell />;
   }
 
   const customerPage = route.customer;
@@ -178,6 +218,11 @@ function CustomerApp() {
     navigateCustomer('customer-login');
   };
 
+  // Expired membership → show renewal screen only (no data access)
+  if (portalData && !portalData.membership_usable) {
+    return <CustomerRenewal navigate={navigateCustomer} />;
+  }
+
   const renderCustomerPage = () => {
     switch (page) {
       case 'customer-dashboard':
@@ -200,12 +245,19 @@ function CustomerApp() {
         return <CustomerPortalProfile />;
       case 'customer-change-password':
         return <CustomerChangePassword />;
+      case 'customer-prime':
+        return <CustomerPrime />;
       default:
         return <CustomerDashboard navigate={navigateCustomer} />;
     }
   };
 
   const membershipId = portalData?.membership?.membership_id ?? customer?.name ?? '';
+  const planLabel = portalData?.membership?.prime_enabled
+    ? 'Prime'
+    : portalData?.membership?.plan === 'prime'
+      ? 'Prime'
+      : 'Basic';
 
   return (
     <CustomerLayout
@@ -213,6 +265,7 @@ function CustomerApp() {
       navigate={navigateCustomer}
       customerName={customer?.name ?? 'Member'}
       membershipId={membershipId}
+      planLabel={planLabel}
       onLogout={handleLogout}
     >
       {renderCustomerPage()}
@@ -233,15 +286,13 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  if (isCustomerRoute) {
-    return (
-      <CustomerAuthProvider>
-        <CustomerApp />
-      </CustomerAuthProvider>
-    );
-  }
-
-  return <AdminApp />;
+  return (
+    <CustomerAuthProvider>
+      <AdminAuthProvider>
+        {isCustomerRoute ? <CustomerApp /> : <AdminAppShell />}
+      </AdminAuthProvider>
+    </CustomerAuthProvider>
+  );
 }
 
 export default App;

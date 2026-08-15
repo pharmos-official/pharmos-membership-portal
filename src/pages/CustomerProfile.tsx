@@ -41,6 +41,7 @@ import { AddMedicineModal } from '@/components/AddMedicineModal';
 import { AddBpModal } from '@/components/AddBpModal';
 import { AddSugarModal } from '@/components/AddSugarModal';
 import { AddEcgModal } from '@/components/AddEcgModal';
+import { AdminMemberDocuments } from '@/pages/AdminMemberDocuments';
 import { showToast } from '@/components/Toast';
 
 interface Props {
@@ -48,7 +49,7 @@ interface Props {
   navigate: (page: Page, params?: Record<string, string>) => void;
 }
 
-type Tab = 'overview' | 'medicine' | 'health' | 'timeline';
+type Tab = 'overview' | 'medicine' | 'health' | 'timeline' | 'prime';
 
 export function CustomerProfile({ customerId, navigate }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -254,7 +255,7 @@ export function CustomerProfile({ customerId, navigate }: Props) {
       {/* Tabs */}
       <div className="card overflow-hidden">
         <div className="flex border-b border-slate-200">
-          {(['overview', 'medicine', 'health', 'timeline'] as Tab[]).map(t => (
+          {(['overview', 'medicine', 'health', 'timeline', 'prime'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -264,7 +265,7 @@ export function CustomerProfile({ customerId, navigate }: Props) {
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {t === 'overview' ? 'Overview' : t === 'medicine' ? 'Medicine History' : t === 'health' ? 'Health History' : 'Timeline'}
+              {t === 'overview' ? 'Overview' : t === 'medicine' ? 'Medicine History' : t === 'health' ? 'Health History' : t === 'prime' ? 'Prime Docs' : 'Timeline'}
             </button>
           ))}
         </div>
@@ -281,6 +282,9 @@ export function CustomerProfile({ customerId, navigate }: Props) {
           )}
           {tab === 'timeline' && (
             <TimelineTab timeline={timeline} />
+          )}
+          {tab === 'prime' && (
+            <AdminMemberDocuments customerId={profile.id} />
           )}
         </div>
       </div>

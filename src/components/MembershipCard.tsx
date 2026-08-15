@@ -1,4 +1,4 @@
-import { Pill, HeartPulse, ShieldCheck } from 'lucide-react';
+import { Pill, HeartPulse, ShieldCheck, FilePlus2, Eye } from 'lucide-react';
 import type { Customer, Membership } from '@/types';
 import { formatDateShort, membershipStatus, daysUntilExpiry } from '@/lib/helpers';
 
@@ -11,6 +11,9 @@ export function MembershipCard({ customer, membership }: Props) {
   const status = membershipStatus(membership?.expiry_date ?? null);
   const daysLeft = daysUntilExpiry(membership?.expiry_date ?? null);
   const expiringSoon = status === 'Active' && daysLeft <= 30;
+  const isPrime = !!membership?.prime_enabled;
+  const planLabel = isPrime ? 'Pharmos Prime' : 'Basic';
+  const planPrice = isPrime ? '₹199/yr' : '₹99/yr';
 
   return (
     <div
@@ -59,17 +62,25 @@ export function MembershipCard({ customer, membership }: Props) {
         </div>
       </div>
 
-      <div className="relative mt-5 flex items-center justify-between border-t border-white/15 pt-4">
-        <div className="flex items-center gap-1.5 text-xs text-pharmos-100">
-          <HeartPulse size={14} className="text-gold-400" />
-          <span>Free Monthly Health Checkup</span>
+        <div className="relative mt-4 flex items-center justify-between rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/15">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+            {isPrime ? <FilePlus2 size={14} className="text-gold-400" /> : <Eye size={14} className="text-pharmos-200" />}
+            {planLabel}
+          </div>
+          <span className="text-[11px] font-medium text-pharmos-100">{planPrice}</span>
         </div>
-        {expiringSoon && (
-          <span className="rounded-full bg-gold-400 px-2.5 py-0.5 text-[10px] font-bold text-pharmos-900">
-            Expires in {daysLeft}d
-          </span>
-        )}
-      </div>
+
+        <div className="relative mt-4 flex items-center justify-between border-t border-white/15 pt-4">
+          <div className="flex items-center gap-1.5 text-xs text-pharmos-100">
+            <HeartPulse size={14} className="text-gold-400" />
+            <span>Free Monthly Health Checkup</span>
+          </div>
+          {expiringSoon && (
+            <span className="rounded-full bg-gold-400 px-2.5 py-0.5 text-[10px] font-bold text-pharmos-900">
+              Expires in {daysLeft}d
+            </span>
+          )}
+        </div>
     </div>
   );
 }

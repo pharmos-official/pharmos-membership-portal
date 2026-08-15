@@ -9,6 +9,9 @@ export interface Customer {
   created_at: string;
 }
 
+export type MembershipPlan = 'basic' | 'prime';
+export type MembershipStatus = 'active' | 'disabled';
+
 export interface Membership {
   id: string;
   customer_id: string;
@@ -16,6 +19,9 @@ export interface Membership {
   start_date: string;
   expiry_date: string;
   created_at: string;
+  plan: MembershipPlan;
+  status: MembershipStatus;
+  prime_enabled: boolean;
 }
 
 export interface CustomerWithMembership extends Customer {
@@ -102,11 +108,75 @@ export interface CustomerAccount {
   last_login: string | null;
 }
 
+export type MemberDocumentCategory =
+  | 'Prescriptions'
+  | 'Diagnosis'
+  | 'Blood Reports'
+  | 'ECG Reports'
+  | 'Other Documents'
+  | 'Notes';
+
+export interface MemberDocument {
+  id: string;
+  customer_id: string;
+  category: string;
+  title: string;
+  description: string | null;
+  file_name: string | null;
+  file_type: string | null;
+  file_path: string | null;
+  uploaded_by: 'member' | 'admin';
+  document_date: string;
+  created_at: string;
+}
+
 export interface CustomerPortalData {
   customer: Customer;
   membership: Membership | null;
+  membership_usable: boolean;
   medicine_purchases: MedicinePurchase[];
   bp_records: BpRecord[];
   sugar_records: SugarRecord[];
   ecg_records: EcgRecord[];
+  member_documents: MemberDocument[];
 }
+
+export interface AppSettings {
+  whatsapp_number: string;
+  whatsapp_message: string;
+  basic_plan_price: string;
+  basic_plan_label: string;
+  prime_plan_price: string;
+  prime_plan_label: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  full_name: string;
+  is_active: boolean;
+}
+
+export interface AdminSession {
+  adminId: string;
+  sessionToken: string;
+  fullName: string;
+}
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  whatsapp_number: '919876543210',
+  whatsapp_message: 'Hello! I would like to create a new Pharmos Membership account. Please guide me through the registration process.',
+  basic_plan_price: '99',
+  basic_plan_label: 'Basic Membership',
+  prime_plan_price: '199',
+  prime_plan_label: 'Pharmos Prime',
+};
+
+export const MEMBER_DOCUMENT_CATEGORIES: MemberDocumentCategory[] = [
+  'Prescriptions',
+  'Diagnosis',
+  'Blood Reports',
+  'ECG Reports',
+  'Other Documents',
+  'Notes',
+];
