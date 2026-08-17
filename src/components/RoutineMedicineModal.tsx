@@ -17,6 +17,7 @@ interface Row {
   medicine_name: string;
   quantity: string;
   unit: string;
+  total_amount: string;
   notes: string;
 }
 
@@ -38,17 +39,19 @@ const units = ['tablet', 'capsule', 'bottle', 'strip', 'box', 'ml', 'unit'];
 let nextId = 1;
 
 function emptyRow(): Row {
-  return { id: nextId++, medicine_name: '', quantity: '30', unit: 'tablet', notes: '' };
+  return { id: nextId++, medicine_name: '', quantity: '30', unit: 'tablet', total_amount: '', notes: '' };
 }
 
 export function RoutineMedicineModal({ open, onClose, customerId, membershipId, onSaved }: Props) {
   const [rows, setRows] = useState<Row[]>(() => [emptyRow(), emptyRow(), emptyRow()]);
+  const [grandTotal, setGrandTotal] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Reset rows each time the modal opens
   useEffect(() => {
     if (open) {
       setRows([emptyRow(), emptyRow(), emptyRow()]);
+      setGrandTotal('');
       setSaving(false);
     }
   }, [open]);
@@ -78,12 +81,23 @@ export function RoutineMedicineModal({ open, onClose, customerId, membershipId, 
       medicine_name: r.medicine_name.trim(),
       quantity: parseFloat(r.quantity) || 1,
       unit: r.unit,
+      total_amount: r.total_amount.trim() ? parseFloat(r.total_amount) : null,
       notes: r.notes.trim() || null,
     }));
     const { error } = await supabase.from('routine_medicines').insert(inserts);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       showToast(error.message, 'error');
+      return;
+    }
+    const { error: totalError } = await supabase.from('routine_medicine_totals').insert({
+      customer_id: customerId,
+      membership_id: membershipId,
+      total_amount: grandTotal.trim() ? parseFloat(grandTotal) : null,
+    });
+    setSaving(false);
+    if (totalError) {
+      showToast(totalError.message, 'error');
       return;
     }
     showToast(`${inserts.length} routine medicine${inserts.length > 1 ? 's' : ''} saved`, 'success');
@@ -107,6 +121,7 @@ export function RoutineMedicineModal({ open, onClose, customerId, membershipId, 
               <th className="px-2 py-2 font-semibold">Medicine Name</th>
               <th className="w-24 px-2 py-2 text-right font-semibold">Quantity</th>
               <th className="w-28 px-2 py-2 font-semibold">Unit</th>
+              <th className="w-28 px-2 py-2 text-right font-semibold">Total Amount</th>
               <th className="px-2 py-2 font-semibold">Note</th>
               <th className="w-10 px-2 py-2" />
             </tr>
@@ -143,6 +158,17 @@ export function RoutineMedicineModal({ open, onClose, customerId, membershipId, 
                 </td>
                 <td className="px-2 py-2">
                   <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="input py-2 text-right"
+                    value={row.total_amount}
+                    onChange={e => updateRow(row.id, 'total_amount', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </td>
+                <td className="px-2 py-2">
+                  <input
                     className="input py-2"
                     value={row.notes}
                     onChange={e => updateRow(row.id, 'notes', e.target.value)}
@@ -176,6 +202,24 @@ export function RoutineMedicineModal({ open, onClose, customerId, membershipId, 
       >
         <Plus size={16} /> Add Medicine
       </button>
+
+      <div className="mt-3">
+        <div className="w-44">
+          <label className="label">Total Amount of Medicines</label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">₹</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="input py-2 pl-7 text-right"
+              value={grandTotal}
+              onChange={e => setGrandTotal(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
         <p className="text-xs text-slate-400">{rows.filter(r => r.medicine_name.trim()).length} medicine(s) ready to save</p>

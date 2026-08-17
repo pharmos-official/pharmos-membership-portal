@@ -24,8 +24,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import type { Page } from '@/components/Layout';
-import type { CustomerProfile as Profile, MedicinePurchase, RoutineMedicine, BpRecord, SugarRecord, EcgRecord, EcgAttachment } from '@/types';
+import type { Page, CustomerProfile as Profile, MedicinePurchase, RoutineMedicine, RoutineMedicineTotal, BpRecord, SugarRecord, EcgRecord, EcgAttachment } from '@/types';
 import { supabase } from '@/lib/supabase';
 import {
   formatDate,
@@ -78,11 +77,12 @@ export function CustomerProfile({ customerId, navigate }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [cust, memberships, med, routine, bp, sugar, ecg] = await Promise.all([
+    const [cust, memberships, med, routine, routineTotals, bp, sugar, ecg] = await Promise.all([
       supabase.from('customers').select('*').eq('id', customerId).maybeSingle(),
       supabase.from('memberships').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       supabase.from('medicine_purchases').select('*').eq('customer_id', customerId).order('purchase_date', { ascending: false }),
       supabase.from('routine_medicines').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
+      supabase.from('routine_medicine_totals').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       supabase.from('bp_records').select('*').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
       supabase.from('sugar_records').select('*').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
       supabase.from('ecg_records').select('*, ecg_attachments(*)').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
@@ -97,6 +97,7 @@ export function CustomerProfile({ customerId, navigate }: Props) {
       membership: memberships.data?.[0] ?? null,
       medicine_purchases: (med.data ?? []) as MedicinePurchase[],
       routine_medicines: (routine.data ?? []) as RoutineMedicine[],
+      routine_medicine_totals: (routineTotals.data ?? []) as RoutineMedicineTotal[],
       bp_records: (bp.data ?? []) as BpRecord[],
       sugar_records: (sugar.data ?? []) as SugarRecord[],
       ecg_records: (ecg.data ?? []) as EcgRecord[],
@@ -321,7 +322,7 @@ export function CustomerProfile({ customerId, navigate }: Props) {
             <MedicineTab medByMonth={medByMonth} sortedMedMonths={sortedMedMonths} />
           )}
           {tab === 'routine' && (
-            <RoutineMedicineTab routineMedicines={profile.routine_medicines} onSaved={load} />
+            <RoutineMedicineTab routineMedicines={profile.routine_medicines} routineMedicineTotals={profile.routine_medicine_totals} onSaved={load} />
           )}
           {tab === 'health' && (
             <HealthTab healthByMonth={healthByMonth} sortedHealthMonths={sortedHealthMonths} expandedMonth={expandedMonth} setExpandedMonth={setExpandedMonth} />
@@ -532,9 +533,9 @@ function MedicineTab({ medByMonth, sortedMedMonths }: {
   );
 }
 
-function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: RoutineMedicine[]; onSaved: () => void }) {
+function RoutineMedicineTab({ routineMedicines, routineMedicineTotals, onSaved }: { routineMedicines: RoutineMedicine[]; routineMedicineTotals: RoutineMedicineTotal[]; onSaved: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ medicine_name: '', quantity: '', unit: 'tablet', notes: '' });
+  const [editForm, setEditForm] = useState({ medicine_name: '', quantity: '', unit: 'tablet', total_amount: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
   const units = ['tablet', 'capsule', 'bottle', 'strip', 'box', 'ml', 'unit'];
@@ -545,6 +546,7 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
       medicine_name: r.medicine_name,
       quantity: String(r.quantity),
       unit: r.unit,
+      total_amount: r.total_amount != null ? String(r.total_amount) : '',
       notes: r.notes ?? '',
     });
   };
@@ -561,6 +563,7 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
         medicine_name: editForm.medicine_name.trim(),
         quantity: parseFloat(editForm.quantity) || 1,
         unit: editForm.unit,
+        total_amount: editForm.total_amount.trim() ? parseFloat(editForm.total_amount) : null,
         notes: editForm.notes.trim() || null,
       })
       .eq('id', id);
@@ -597,6 +600,7 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
             <th className="px-4 py-2 text-left font-semibold">Medicine Name</th>
             <th className="px-4 py-2 text-right font-semibold">Quantity</th>
             <th className="px-4 py-2 text-left font-semibold">Unit</th>
+            <th className="px-4 py-2 text-right font-semibold">Total Amount</th>
             <th className="px-4 py-2 text-left font-semibold">Note</th>
             <th className="px-4 py-2 text-right font-semibold">Actions</th>
           </tr>
@@ -636,6 +640,17 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
                     </td>
                     <td className="px-2 py-2">
                       <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input py-2 text-right"
+                        value={editForm.total_amount}
+                        onChange={e => setEditForm(f => ({ ...f, total_amount: e.target.value }))}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
                         className="input py-2"
                         value={editForm.notes}
                         onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
@@ -667,6 +682,7 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
                     <td className="px-4 py-2.5 font-medium text-slate-800">{r.medicine_name}</td>
                     <td className="px-4 py-2.5 text-right text-slate-600">{r.quantity}</td>
                     <td className="px-4 py-2.5 text-slate-600">{r.unit}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">{r.total_amount != null ? `₹${r.total_amount}` : '—'}</td>
                     <td className="px-4 py-2.5 text-slate-600">{r.notes ?? '—'}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-1.5">
@@ -693,6 +709,16 @@ function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: R
           })}
         </tbody>
       </table>
+      {routineMedicineTotals.length > 0 && (() => {
+        const latestTotal = routineMedicineTotals[0];
+        return (
+          <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">
+            <p className="text-sm font-semibold text-slate-700">
+              Total Amount of Medicines: <span className="text-pharmos-700">{latestTotal.total_amount != null ? `₹${latestTotal.total_amount}` : '—'}</span>
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 }

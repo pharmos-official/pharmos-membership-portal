@@ -50,7 +50,16 @@ export interface RoutineMedicine {
   medicine_name: string;
   quantity: number;
   unit: string;
+  total_amount: number | null;
   notes: string | null;
+  created_at: string;
+}
+
+export interface RoutineMedicineTotal {
+  id: string;
+  customer_id: string;
+  membership_id: string;
+  total_amount: number | null;
   created_at: string;
 }
 
@@ -105,6 +114,7 @@ export interface CustomerProfile extends Customer {
   membership: Membership | null;
   medicine_purchases: MedicinePurchase[];
   routine_medicines: RoutineMedicine[];
+  routine_medicine_totals: RoutineMedicineTotal[];
   bp_records: BpRecord[];
   sugar_records: SugarRecord[];
   ecg_records: EcgRecord[];
