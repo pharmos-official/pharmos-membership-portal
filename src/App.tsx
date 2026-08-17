@@ -254,10 +254,10 @@ function CustomerApp() {
 
   const membershipId = portalData?.membership?.membership_id ?? customer?.name ?? '';
   const planLabel = portalData?.membership?.prime_enabled
-    ? 'Prime'
+    ? 'Pharmos Prime'
     : portalData?.membership?.plan === 'prime'
-      ? 'Prime'
-      : 'Basic';
+      ? 'Pharmos Prime'
+      : 'Pharmos Care';
 
   return (
     <CustomerLayout

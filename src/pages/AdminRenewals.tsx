@@ -166,7 +166,7 @@ export function AdminRenewals() {
                   <div className="flex items-center gap-2">
                     <span className={`badge ${st === 'Active' ? 'badge-green' : 'badge-red'}`}>{st}</span>
                     <span className={`badge ${row.membership?.prime_enabled ? 'badge-gold' : 'badge-slate'}`}>
-                      {row.membership?.prime_enabled ? 'Prime' : row.membership?.plan === 'prime' ? 'Prime' : 'Basic'}
+                      {row.membership?.prime_enabled ? 'Prime' : row.membership?.plan === 'prime' ? 'Prime' : 'Care'}
                     </span>
                     <button onClick={() => openEdit(row)} className="btn-outline !px-3 !py-1.5 text-xs">
                       Manage / Renew
@@ -194,7 +194,7 @@ export function AdminRenewals() {
               <div>
                 <label className="label">Membership Plan</label>
                 <select className="input" value={editing.membership.plan} onChange={e => updateEdit('plan', e.target.value)}>
-                  <option value="basic">₹99 Basic</option>
+                  <option value="basic">₹99 Pharmos Care</option>
                   <option value="prime">₹199 Pharmos Prime</option>
                 </select>
               </div>

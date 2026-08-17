@@ -18,9 +18,14 @@ import {
   Video,
   Download,
   ChevronDown,
+  KeyRound,
+  Pencil,
+  Trash2,
+  Check,
+  X,
 } from 'lucide-react';
 import type { Page } from '@/components/Layout';
-import type { CustomerProfile as Profile, MedicinePurchase, BpRecord, SugarRecord, EcgRecord, EcgAttachment } from '@/types';
+import type { CustomerProfile as Profile, MedicinePurchase, RoutineMedicine, BpRecord, SugarRecord, EcgRecord, EcgAttachment } from '@/types';
 import { supabase } from '@/lib/supabase';
 import {
   formatDate,
@@ -41,6 +46,7 @@ import { AddMedicineModal } from '@/components/AddMedicineModal';
 import { AddBpModal } from '@/components/AddBpModal';
 import { AddSugarModal } from '@/components/AddSugarModal';
 import { AddEcgModal } from '@/components/AddEcgModal';
+import { RoutineMedicineModal } from '@/components/RoutineMedicineModal';
 import { AdminMemberDocuments } from '@/pages/AdminMemberDocuments';
 import { showToast } from '@/components/Toast';
 
@@ -49,21 +55,34 @@ interface Props {
   navigate: (page: Page, params?: Record<string, string>) => void;
 }
 
-type Tab = 'overview' | 'medicine' | 'health' | 'timeline' | 'prime';
+type Tab = 'overview' | 'medicine' | 'routine' | 'health' | 'timeline' | 'prime';
 
 export function CustomerProfile({ customerId, navigate }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
-  const [modals, setModals] = useState({ medicine: false, bp: false, sugar: false, ecg: false });
+  const [modals, setModals] = useState({ medicine: false, bp: false, sugar: false, ecg: false, routine: false });
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
+  const [loadingCreds, setLoadingCreds] = useState(false);
+
+  const loadCredentials = useCallback(async (customerName: string, mobile: string) => {
+    setLoadingCreds(true);
+    try {
+      const firstName = customerName.trim().split(/\s+/)[0] || 'member';
+      setPassword(firstName);
+    } finally {
+      setLoadingCreds(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [cust, memberships, med, bp, sugar, ecg] = await Promise.all([
+    const [cust, memberships, med, routine, bp, sugar, ecg] = await Promise.all([
       supabase.from('customers').select('*').eq('id', customerId).maybeSingle(),
       supabase.from('memberships').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       supabase.from('medicine_purchases').select('*').eq('customer_id', customerId).order('purchase_date', { ascending: false }),
+      supabase.from('routine_medicines').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       supabase.from('bp_records').select('*').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
       supabase.from('sugar_records').select('*').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
       supabase.from('ecg_records').select('*, ecg_attachments(*)').eq('customer_id', customerId).order('checkup_date', { ascending: false }),
@@ -77,12 +96,14 @@ export function CustomerProfile({ customerId, navigate }: Props) {
       ...cust.data,
       membership: memberships.data?.[0] ?? null,
       medicine_purchases: (med.data ?? []) as MedicinePurchase[],
+      routine_medicines: (routine.data ?? []) as RoutineMedicine[],
       bp_records: (bp.data ?? []) as BpRecord[],
       sugar_records: (sugar.data ?? []) as SugarRecord[],
       ecg_records: (ecg.data ?? []) as EcgRecord[],
     });
+    await loadCredentials(cust.data.name, cust.data.mobile);
     setLoading(false);
-  }, [customerId, navigate]);
+  }, [customerId, navigate, loadCredentials]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -209,6 +230,27 @@ export function CustomerProfile({ customerId, navigate }: Props) {
             </div>
           </div>
 
+          {/* Login Credentials */}
+          <div className="card border-gold-200 bg-gold-50/40 p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800">Customer Login</h3>
+              <KeyRound size={18} className="text-gold-600" />
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Auto-generated credentials — share with the customer</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">User ID</p>
+                <p className="mt-0.5 font-mono text-sm font-bold text-slate-800">{profile.mobile}</p>
+                <p className="text-[10px] text-slate-400">Mobile number</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Password</p>
+                <p className="mt-0.5 font-mono text-sm font-bold text-slate-800">{password ?? '—'}</p>
+                <p className="text-[10px] text-slate-400">First name</p>
+              </div>
+            </div>
+          </div>
+
           {/* Quick stats */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="card p-4">
@@ -250,12 +292,13 @@ export function CustomerProfile({ customerId, navigate }: Props) {
         <button onClick={() => openModal('bp')} className="btn-outline"><HeartPulse size={18} /> Record BP</button>
         <button onClick={() => openModal('sugar')} className="btn-outline"><Droplet size={18} /> Record Sugar</button>
         <button onClick={() => openModal('ecg')} className="btn-outline"><Activity size={18} /> Record ECG</button>
+        <button onClick={() => openModal('routine')} className="btn-outline"><Pill size={18} /> Routine Medicine</button>
       </div>
 
       {/* Tabs */}
       <div className="card overflow-hidden">
         <div className="flex border-b border-slate-200">
-          {(['overview', 'medicine', 'health', 'timeline', 'prime'] as Tab[]).map(t => (
+          {(['overview', 'medicine', 'routine', 'health', 'timeline', 'prime'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -265,7 +308,7 @@ export function CustomerProfile({ customerId, navigate }: Props) {
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {t === 'overview' ? 'Overview' : t === 'medicine' ? 'Medicine History' : t === 'health' ? 'Health History' : t === 'prime' ? 'Prime Docs' : 'Timeline'}
+              {t === 'overview' ? 'Overview' : t === 'medicine' ? 'Medicine History' : t === 'routine' ? 'Routine Medicine' : t === 'health' ? 'Health History' : t === 'prime' ? 'Prime Docs' : 'Timeline'}
             </button>
           ))}
         </div>
@@ -276,6 +319,9 @@ export function CustomerProfile({ customerId, navigate }: Props) {
           )}
           {tab === 'medicine' && (
             <MedicineTab medByMonth={medByMonth} sortedMedMonths={sortedMedMonths} />
+          )}
+          {tab === 'routine' && (
+            <RoutineMedicineTab routineMedicines={profile.routine_medicines} onSaved={load} />
           )}
           {tab === 'health' && (
             <HealthTab healthByMonth={healthByMonth} sortedHealthMonths={sortedHealthMonths} expandedMonth={expandedMonth} setExpandedMonth={setExpandedMonth} />
@@ -302,6 +348,15 @@ export function CustomerProfile({ customerId, navigate }: Props) {
       <AddBpModal open={modals.bp} onClose={() => closeModal('bp')} customerId={profile.id} onSaved={load} />
       <AddSugarModal open={modals.sugar} onClose={() => closeModal('sugar')} customerId={profile.id} onSaved={load} />
       <AddEcgModal open={modals.ecg} onClose={() => closeModal('ecg')} customerId={profile.id} onSaved={load} />
+      {profile.membership && (
+        <RoutineMedicineModal
+          open={modals.routine}
+          onClose={() => closeModal('routine')}
+          customerId={profile.id}
+          membershipId={profile.membership.membership_id}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
@@ -473,6 +528,171 @@ function MedicineTab({ medByMonth, sortedMedMonths }: {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function RoutineMedicineTab({ routineMedicines, onSaved }: { routineMedicines: RoutineMedicine[]; onSaved: () => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ medicine_name: '', quantity: '', unit: 'tablet', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  const units = ['tablet', 'capsule', 'bottle', 'strip', 'box', 'ml', 'unit'];
+
+  const startEdit = (r: RoutineMedicine) => {
+    setEditingId(r.id);
+    setEditForm({
+      medicine_name: r.medicine_name,
+      quantity: String(r.quantity),
+      unit: r.unit,
+      notes: r.notes ?? '',
+    });
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editForm.medicine_name.trim()) {
+      showToast('Medicine name is required', 'error');
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('routine_medicines')
+      .update({
+        medicine_name: editForm.medicine_name.trim(),
+        quantity: parseFloat(editForm.quantity) || 1,
+        unit: editForm.unit,
+        notes: editForm.notes.trim() || null,
+      })
+      .eq('id', id);
+    setSaving(false);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    showToast('Routine medicine updated', 'success');
+    setEditingId(null);
+    onSaved();
+  };
+
+  const deleteMedicine = async (r: RoutineMedicine) => {
+    if (!window.confirm(`Delete "${r.medicine_name}" from routine medicines?`)) return;
+    const { error } = await supabase.from('routine_medicines').delete().eq('id', r.id);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    showToast('Routine medicine deleted', 'success');
+    onSaved();
+  };
+
+  if (routineMedicines.length === 0) {
+    return <p className="py-8 text-center text-sm text-slate-400">No routine medicines recorded yet.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
+          <tr>
+            <th className="px-4 py-2 text-left font-semibold">Medicine Name</th>
+            <th className="px-4 py-2 text-right font-semibold">Quantity</th>
+            <th className="px-4 py-2 text-left font-semibold">Unit</th>
+            <th className="px-4 py-2 text-left font-semibold">Note</th>
+            <th className="px-4 py-2 text-right font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {routineMedicines.map(r => {
+            const isEditing = editingId === r.id;
+            return (
+              <tr key={r.id} className="hover:bg-slate-50">
+                {isEditing ? (
+                  <>
+                    <td className="px-2 py-2">
+                      <input
+                        className="input py-2"
+                        value={editForm.medicine_name}
+                        onChange={e => setEditForm(f => ({ ...f, medicine_name: e.target.value }))}
+                        placeholder="Medicine name"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min="1"
+                        className="input py-2 text-right"
+                        value={editForm.quantity}
+                        onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <select
+                        className="input py-2"
+                        value={editForm.unit}
+                        onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
+                      >
+                        {units.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        className="input py-2"
+                        value={editForm.notes}
+                        onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                        placeholder="Note"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => saveEdit(r.id)}
+                          disabled={saving}
+                          className="rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                          title="Save"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100"
+                          title="Cancel"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-2.5 font-medium text-slate-800">{r.medicine_name}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">{r.quantity}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{r.unit}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{r.notes ?? '—'}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => startEdit(r)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-pharmos-50 hover:text-pharmos-600"
+                          title="Edit"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteMedicine(r)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -103,10 +103,10 @@ CREATE POLICY "anon_delete_app_settings" ON app_settings
 
 -- Seed defaults (overwritten by admin via Settings page)
 INSERT INTO app_settings (key, value) VALUES
-  ('whatsapp_number', '919876543210'),
+  ('whatsapp_number', '9993446609'),
   ('whatsapp_message', 'Hello! I would like to create a new Pharmos Membership account. Please guide me through the registration process.'),
   ('basic_plan_price', '99'),
-  ('basic_plan_label', 'Basic Membership'),
+  ('basic_plan_label', 'Pharmos Care'),
   ('prime_plan_price', '199'),
   ('prime_plan_label', 'Pharmos Prime')
 ON CONFLICT (key) DO NOTHING;

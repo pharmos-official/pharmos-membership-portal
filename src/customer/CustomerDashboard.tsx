@@ -38,7 +38,7 @@ export function CustomerDashboard({ navigate }: Props) {
   const { membership, medicine_purchases, bp_records, sugar_records, ecg_records, member_documents } = data;
   const memStatus = membershipStatus(membership?.expiry_date ?? null);
   const isPrime = !!membership?.prime_enabled;
-  const planLabel = isPrime ? 'Pharmos Prime' : 'Basic Membership';
+  const planLabel = isPrime ? 'Pharmos Prime' : 'Pharmos Care';
   const now = new Date();
   const monthMeds = medicine_purchases.filter(p => {
     const d = new Date(p.purchase_date);
@@ -94,7 +94,7 @@ export function CustomerDashboard({ navigate }: Props) {
         </div>
       </div>
 
-      {/* View Only notice for Basic members */}
+      {/* View Only notice for Pharmos Care members */}
       {!isPrime && (
         <div className="flex items-center gap-3 rounded-2xl border border-pharmos-200 bg-pharmos-50 p-4">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-pharmos-100">

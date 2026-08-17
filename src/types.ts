@@ -43,6 +43,17 @@ export interface MedicinePurchase {
   created_at: string;
 }
 
+export interface RoutineMedicine {
+  id: string;
+  customer_id: string;
+  membership_id: string;
+  medicine_name: string;
+  quantity: number;
+  unit: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface BpRecord {
   id: string;
   customer_id: string;
@@ -93,6 +104,7 @@ export interface EcgAttachment {
 export interface CustomerProfile extends Customer {
   membership: Membership | null;
   medicine_purchases: MedicinePurchase[];
+  routine_medicines: RoutineMedicine[];
   bp_records: BpRecord[];
   sugar_records: SugarRecord[];
   ecg_records: EcgRecord[];
@@ -164,10 +176,10 @@ export interface AdminSession {
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  whatsapp_number: '919876543210',
+  whatsapp_number: '9993446609',
   whatsapp_message: 'Hello! I would like to create a new Pharmos Membership account. Please guide me through the registration process.',
   basic_plan_price: '99',
-  basic_plan_label: 'Basic Membership',
+  basic_plan_label: 'Pharmos Care',
   prime_plan_price: '199',
   prime_plan_label: 'Pharmos Prime',
 };

@@ -114,7 +114,7 @@ export function AdminSettings() {
               className="input"
               value={form.whatsapp_number}
               onChange={e => update('whatsapp_number', e.target.value)}
-              placeholder="e.g. 919876543210"
+              placeholder="e.g. 9993446609"
             />
             <p className="mt-1 text-[11px] text-slate-400">Include country code without + sign</p>
           </div>

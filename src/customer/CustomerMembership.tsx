@@ -14,7 +14,7 @@ export function CustomerMembership() {
   const { membership } = data;
   const status = membershipStatus(membership?.expiry_date ?? null);
   const isPrime = !!membership?.prime_enabled;
-  const planLabel = isPrime ? 'Pharmos Prime' : 'Basic Membership';
+  const planLabel = isPrime ? 'Pharmos Prime' : 'Pharmos Care';
   const planPrice = isPrime ? '₹199' : '₹99';
   const planFeatures = isPrime
     ? ['View all health records', 'Upload & manage personal documents', 'Store prescriptions, reports, images & PDFs', 'Organize into categories', 'Add text notes']
@@ -98,7 +98,7 @@ export function CustomerMembership() {
             {isPrime ? (
               <span className="inline-flex items-center gap-2"><FilePlus2 size={18} className="text-gold-600" /> Pharmos Prime Benefits</span>
             ) : (
-              <span className="inline-flex items-center gap-2"><Eye size={18} className="text-pharmos-600" /> Basic Membership Benefits</span>
+              <span className="inline-flex items-center gap-2"><Eye size={18} className="text-pharmos-600" /> Pharmos Care Benefits</span>
             )}
           </h2>
           <ul className="mt-3 space-y-2">

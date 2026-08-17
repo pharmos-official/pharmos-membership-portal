@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import {
   FileText, Image as ImageIcon, FilePlus2, Download, Eye, Trash2, X,
-  StickyNote, Loader2, UploadCloud, FolderOpen, AlertCircle,
+  StickyNote, Loader2, UploadCloud, FolderOpen, AlertCircle, Pencil,
+  Video, Lock,
 } from 'lucide-react';
 import { usePortalData } from '@/customer/usePortalData';
 import { useCustomerAuth } from '@/lib/customer-auth';
@@ -19,15 +20,17 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Notes': 'bg-purple-50 text-purple-700',
 };
 
-function getFileCategory(fileType: string | null): 'image' | 'pdf' | 'other' {
+function getFileCategory(fileType: string | null): 'image' | 'pdf' | 'video' | 'other' {
   if (fileType?.startsWith('image/')) return 'image';
   if (fileType === 'application/pdf' || fileType?.includes('pdf')) return 'pdf';
+  if (fileType?.startsWith('video/')) return 'video';
   return 'other';
 }
 
 function getFileIcon(doc: MemberDocument): typeof FileText {
   const cat = getFileCategory(doc.file_type);
   if (cat === 'image') return ImageIcon;
+  if (cat === 'video') return Video;
   if (doc.category === 'Notes' || !doc.file_path) return StickyNote;
   return FileText;
 }
@@ -38,9 +41,12 @@ export function CustomerPrime() {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<MemberDocument | null>(null);
+  const [editForm, setEditForm] = useState({ category: '', title: '', description: '', document_date: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
-  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('other');
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'video' | 'other'>('other');
   const [confirmDelete, setConfirmDelete] = useState<MemberDocument | null>(null);
 
   // Upload form state
@@ -192,6 +198,46 @@ export function CustomerPrime() {
     a.click();
   };
 
+  const openEdit = (doc: MemberDocument) => {
+    setEditingDoc(doc);
+    setEditForm({
+      category: doc.category,
+      title: doc.title,
+      description: doc.description ?? '',
+      document_date: doc.document_date,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingDoc || !customerId || !sessionToken) return;
+    if (!editForm.title.trim()) {
+      showToast('Please enter a title', 'error');
+      return;
+    }
+    setSavingEdit(true);
+    const { data: ok, error } = await supabase.rpc('update_member_document', {
+      p_customer_id: customerId,
+      p_session_token: sessionToken,
+      p_document_id: editingDoc.id,
+      p_category: editForm.category,
+      p_title: editForm.title.trim(),
+      p_description: editForm.description.trim() || null,
+      p_document_date: editForm.document_date,
+    });
+    setSavingEdit(false);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    if (!ok) {
+      showToast('Unable to update document', 'error');
+      return;
+    }
+    showToast('Document updated successfully', 'success');
+    setEditingDoc(null);
+    await reload();
+  };
+
   const handleDelete = async () => {
     if (!confirmDelete || !customerId || !sessionToken) return;
     const { data: ok, error } = await supabase.rpc('delete_member_document', {
@@ -209,7 +255,7 @@ export function CustomerPrime() {
       setConfirmDelete(null);
       return;
     }
-    // Remove file from storage if it exists
+    // Remove file from storage if it exists (handled server-side too, keep for safety)
     if (confirmDelete.file_path) {
       await supabase.storage.from('member-documents').remove([confirmDelete.file_path]).catch(() => {});
     }
@@ -290,7 +336,14 @@ export function CustomerPrime() {
                 )}
 
                 <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-[11px] text-slate-400">{formatDate(doc.document_date)}</span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                    {formatDate(doc.document_date)}
+                    {doc.uploaded_by === 'admin' && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500" title="Uploaded by PHARMOS Admin — read only">
+                        <Lock size={9} /> Read-only
+                      </span>
+                    )}
+                  </span>
                   <div className="flex items-center gap-1">
                     {isNote && !doc.file_path && (
                       <span className="rounded-md bg-purple-50 px-2 py-1 text-[10px] font-semibold text-purple-600">Note</span>
@@ -305,9 +358,18 @@ export function CustomerPrime() {
                         </button>
                       </>
                     )}
-                    <button onClick={() => setConfirmDelete(doc)} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50" title="Delete">
-                      <Trash2 size={15} />
-                    </button>
+                    {doc.uploaded_by === 'member' ? (
+                      <>
+                        <button onClick={() => openEdit(doc)} className="rounded-lg p-1.5 text-pharmos-600 hover:bg-pharmos-50" title="Edit">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => setConfirmDelete(doc)} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50" title="Delete">
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">Admin</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -362,7 +424,7 @@ export function CustomerPrime() {
               </div>
 
               <div>
-                <label className="label">File (JPG, PNG, PDF) — optional for Notes</label>
+                <label className="label">File (JPG, PNG, PDF, MP4) — optional for Notes</label>
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-5 transition-colors hover:border-pharmos-400 hover:bg-pharmos-50"
@@ -379,13 +441,13 @@ export function CustomerPrime() {
                     <>
                       <UploadCloud size={24} className="text-slate-400" />
                       <p className="mt-2 text-sm font-medium text-slate-600">Click to choose a file</p>
-                      <p className="text-xs text-slate-400">JPG, JPEG, PNG, PDF supported</p>
+                      <p className="text-xs text-slate-400">JPG, PNG, PDF, MP4, MOV, AVI supported</p>
                     </>
                   )}
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                    accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov,.avi,.webm,image/jpeg,image/png,application/pdf,video/mp4,video/quicktime,video/x-msvideo,video/webm"
                     className="hidden"
                     onChange={e => handleFileSelect(e.target.files?.[0] ?? null)}
                   />
@@ -423,9 +485,12 @@ export function CustomerPrime() {
                 <X size={20} />
               </button>
             </div>
-            <div className="max-h-[75vh] overflow-auto">
+            <div className="max-h-[75vh] overflow-auto bg-slate-100">
               {previewType === 'image' && <img src={previewUrl} alt={previewName} className="mx-auto max-w-full" />}
               {previewType === 'pdf' && <iframe src={previewUrl} title={previewName} className="h-[70vh] w-full" />}
+              {previewType === 'video' && (
+                <video src={previewUrl} controls className="mx-auto max-h-[70vh] w-full bg-black" />
+              )}
               {previewType === 'other' && (
                 <div className="p-12 text-center">
                   <FileText size={48} className="mx-auto text-slate-300" />
@@ -433,6 +498,72 @@ export function CustomerPrime() {
                   <a href={previewUrl} download className="btn-primary mt-4">Download File</a>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editingDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingDoc(null)}>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="font-display text-lg font-bold text-slate-800">Edit Document</h2>
+                <p className="text-xs text-slate-500">Update your document details</p>
+              </div>
+              <button onClick={() => setEditingDoc(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div>
+                <label className="label">Document Category *</label>
+                <select className="input" value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
+                  {MEMBER_DOCUMENT_CATEGORIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Title *</label>
+                <input
+                  className="input"
+                  value={editForm.title}
+                  onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="e.g. Blood Report — August 2026"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={editForm.document_date}
+                  onChange={e => setEditForm({ ...editForm, document_date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="label">Description / Notes (optional)</label>
+                <textarea
+                  className="input min-h-[70px] resize-y"
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Any notes or description about this document"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setEditingDoc(null)} className="btn-ghost">Cancel</button>
+                <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="btn-primary">
+                  {savingEdit ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : 'Save Changes'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

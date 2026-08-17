@@ -6,12 +6,20 @@ import { supabase } from '@/lib/supabase';
 import { generateMembershipId, calcExpiry, toISODate } from '@/lib/helpers';
 import { showToast } from '@/components/Toast';
 import { MembershipCard } from '@/components/MembershipCard';
+import { useAdminAuth } from '@/lib/admin-auth';
 
 interface Props {
   navigate: (page: Page, params?: Record<string, string>) => void;
 }
 
+interface SuccessState {
+  customer: Customer;
+  membership: Membership;
+  credentials?: { userId: string; password: string };
+}
+
 export function AddCustomer({ navigate }: Props) {
+  const { sessionToken } = useAdminAuth();
   const [form, setForm] = useState({
     name: '',
     mobile: '',
@@ -25,7 +33,7 @@ export function AddCustomer({ navigate }: Props) {
   });
   const [showPrimeToggle, setShowPrimeToggle] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<{ customer: Customer; membership: Membership } | null>(null);
+  const [success, setSuccess] = useState<SuccessState | null>(null);
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -79,7 +87,23 @@ export function AddCustomer({ navigate }: Props) {
         return;
       }
 
-      setSuccess({ customer, membership });
+      const { data: credentials, error: accountErr } = await supabase.rpc('admin_create_customer_login', {
+        p_admin_session_token: sessionToken,
+        p_customer_id: customer.id,
+      });
+
+      if (accountErr || !credentials) {
+        showToast(`Customer created but login setup failed: ${accountErr?.message ?? 'No credentials returned'}`, 'error');
+      }
+
+      const creds = credentials as { user_id?: string; password?: string } | null;
+      setSuccess({
+        customer,
+        membership,
+        credentials: creds?.user_id && creds?.password
+          ? { userId: creds.user_id, password: creds.password }
+          : { userId: customer.mobile, password: form.name.trim().split(/\s+/)[0] },
+      });
       showToast(`Membership ${membershipId} created successfully!`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Something went wrong', 'error');
@@ -102,6 +126,25 @@ export function AddCustomer({ navigate }: Props) {
             </p>
           </div>
         </div>
+
+        {success.credentials && (
+          <div className="card border-gold-200 bg-gold-50/50 p-6">
+            <h3 className="font-display text-base font-bold text-slate-800">Customer Login Credentials</h3>
+            <p className="mt-1 text-xs text-slate-500">Share these credentials with the customer. They can login to the customer portal at the same website.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">User ID</p>
+                <p className="mt-1 font-mono text-sm font-bold text-slate-800">{success.credentials.userId}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Customer's mobile number</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Password</p>
+                <p className="mt-1 font-mono text-sm font-bold text-slate-800">{success.credentials.password}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Customer's first name</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2">
           <MembershipCard customer={success.customer} membership={success.membership} />
@@ -233,7 +276,7 @@ export function AddCustomer({ navigate }: Props) {
                   : 'border-slate-200 bg-white hover:border-slate-300'
               }`}
             >
-              <p className="text-sm font-bold text-slate-800">₹99 Basic</p>
+              <p className="text-sm font-bold text-slate-800">₹99 Pharmos Care</p>
               <p className="mt-0.5 text-xs text-slate-500">View health records only</p>
             </button>
             <button

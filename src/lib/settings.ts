@@ -31,7 +31,7 @@ export function usePrimePlans(settings: AppSettings) {
   return {
     basic: {
       id: 'basic' as const,
-      label: settings.basic_plan_label || 'Basic Membership',
+      label: settings.basic_plan_label || 'Pharmos Care',
       price: basicPrice,
       priceLabel: `₹${basicPrice}/year`,
       features: [
@@ -48,7 +48,7 @@ export function usePrimePlans(settings: AppSettings) {
       price: primePrice,
       priceLabel: `₹${primePrice}/year`,
       features: [
-        'Everything in Basic Membership',
+        'Everything in Pharmos Care',
         'Personal health document storage',
         'Upload prescriptions, reports, images & PDFs',
         'Organize documents into categories',

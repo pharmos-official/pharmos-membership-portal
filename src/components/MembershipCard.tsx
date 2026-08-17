@@ -11,8 +11,8 @@ export function MembershipCard({ customer, membership }: Props) {
   const status = membershipStatus(membership?.expiry_date ?? null);
   const daysLeft = daysUntilExpiry(membership?.expiry_date ?? null);
   const expiringSoon = status === 'Active' && daysLeft <= 30;
-  const isPrime = !!membership?.prime_enabled;
-  const planLabel = isPrime ? 'Pharmos Prime' : 'Basic';
+  const isPrime = membership?.plan === 'prime';
+  const planLabel = isPrime ? 'Pharmos Prime' : 'Pharmos Care';
   const planPrice = isPrime ? '₹199/yr' : '₹99/yr';
 
   return (

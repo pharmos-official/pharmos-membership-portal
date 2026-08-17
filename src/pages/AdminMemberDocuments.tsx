@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FilePlus2, Download, Eye, Trash2, X, Loader2, AlertCircle, FileText, Image as ImageIcon, StickyNote } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FilePlus2, Download, Eye, Trash2, X, Loader2, AlertCircle, FileText, Image as ImageIcon, StickyNote, UploadCloud } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/lib/admin-auth';
 import { showToast } from '@/components/Toast';
@@ -34,6 +34,12 @@ export function AdminMemberDocuments({ customerId }: Props) {
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('other');
   const [confirmDelete, setConfirmDelete] = useState<MemberDocument | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Upload state
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadForm, setUploadForm] = useState({ category: 'Prescriptions', title: '', description: '', document_date: new Date().toISOString().split('T')[0] });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +80,78 @@ export function AdminMemberDocuments({ customerId }: Props) {
     a.click();
   };
 
+  const openUpload = () => {
+    setUploadForm({ category: 'Prescriptions', title: '', description: '', document_date: new Date().toISOString().split('T')[0] });
+    setSelectedFile(null);
+    setUploadOpen(true);
+  };
+
+  const handleAdminUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sessionToken) return;
+    if (!uploadForm.title.trim()) {
+      showToast('Please enter a title', 'error');
+      return;
+    }
+    setUploading(true);
+    try {
+      let filePath: string | null = null;
+      let fileName: string | null = null;
+      let fileType: string | null = null;
+
+      // Upload file if selected — admin files go under `<customerId>/admin/`
+      if (selectedFile) {
+        filePath = `${customerId}/admin/${Date.now()}-${selectedFile.name}`;
+        const { error: upErr } = await supabase.storage
+          .from('member-documents')
+          .upload(filePath, selectedFile);
+        if (upErr) {
+          showToast(`Failed to upload file: ${upErr.message}`, 'error');
+          setUploading(false);
+          return;
+        }
+        fileName = selectedFile.name;
+        fileType = selectedFile.type || '';
+      }
+
+      const { data: docId, error } = await supabase.rpc('admin_create_member_document', {
+        p_admin_session_token: sessionToken,
+        p_customer_id: customerId,
+        p_category: uploadForm.category,
+        p_title: uploadForm.title.trim(),
+        p_description: uploadForm.description.trim() || null,
+        p_file_name: fileName,
+        p_file_type: fileType,
+        p_file_path: filePath,
+        p_document_date: uploadForm.document_date,
+      });
+
+      if (error) {
+        showToast(error.message, 'error');
+        if (filePath) {
+          await supabase.storage.from('member-documents').remove([filePath]);
+        }
+        setUploading(false);
+        return;
+      }
+      if (!docId) {
+        showToast('Unable to save document', 'error');
+        if (filePath) {
+          await supabase.storage.from('member-documents').remove([filePath]);
+        }
+        setUploading(false);
+        return;
+      }
+
+      showToast('Document uploaded successfully', 'success');
+      setUploadOpen(false);
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Something went wrong', 'error');
+    }
+    setUploading(false);
+  };
+
   const handleDelete = async () => {
     if (!confirmDelete || !sessionToken) return;
     setDeleting(true);
@@ -108,6 +186,9 @@ export function AdminMemberDocuments({ customerId }: Props) {
           <FilePlus2 size={18} className="text-gold-600" />
           <h3 className="text-sm font-bold text-slate-800">Pharmos Prime Documents ({docs.length})</h3>
         </div>
+        <button onClick={openUpload} className="btn-gold !px-3 !py-1.5 text-xs">
+          <UploadCloud size={14} /> Upload
+        </button>
       </div>
 
       {docs.length === 0 ? (
@@ -156,6 +237,103 @@ export function AdminMemberDocuments({ customerId }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Upload modal */}
+      {uploadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setUploadOpen(false)}>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="font-display text-lg font-bold text-slate-800">Upload Document</h2>
+                <p className="text-xs text-slate-500">Upload as Admin — read-only for the customer</p>
+              </div>
+              <button onClick={() => setUploadOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminUpload} className="space-y-4 p-5">
+              <div>
+                <label className="label">Document Category *</label>
+                <select className="input" value={uploadForm.category} onChange={e => setUploadForm({ ...uploadForm, category: e.target.value })}>
+                  {MEMBER_DOCUMENT_CATEGORIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Title *</label>
+                <input
+                  className="input"
+                  value={uploadForm.title}
+                  onChange={e => setUploadForm({ ...uploadForm, title: e.target.value })}
+                  placeholder="e.g. Blood Report — August 2026"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={uploadForm.document_date}
+                  onChange={e => setUploadForm({ ...uploadForm, document_date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="label">File (JPG, PNG, PDF, MP4) — optional for Notes</label>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-5 transition-colors hover:border-pharmos-400 hover:bg-pharmos-50"
+                >
+                  {selectedFile ? (
+                    <div className="flex items-center gap-3">
+                      <FileText size={20} className="text-pharmos-600" />
+                      <span className="text-sm font-medium text-slate-700">{selectedFile.name}</span>
+                      <button type="button" onClick={e => { e.stopPropagation(); setSelectedFile(null); }} className="rounded p-1 text-red-500 hover:bg-red-50">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <UploadCloud size={24} className="text-slate-400" />
+                      <p className="mt-2 text-sm font-medium text-slate-600">Click to choose a file</p>
+                      <p className="text-xs text-slate-400">JPG, PNG, PDF, MP4 supported</p>
+                    </>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov,.avi,.webm,image/jpeg,image/png,application/pdf,video/mp4,video/quicktime,video/x-msvideo,video/webm"
+                    className="hidden"
+                    onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Description / Notes (optional)</label>
+                <textarea
+                  className="input min-h-[70px] resize-y"
+                  value={uploadForm.description}
+                  onChange={e => setUploadForm({ ...uploadForm, description: e.target.value })}
+                  placeholder="Any notes or description about this document"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setUploadOpen(false)} className="btn-ghost">Cancel</button>
+                <button type="submit" disabled={uploading} className="btn-primary">
+                  {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading…</> : 'Upload Document'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
