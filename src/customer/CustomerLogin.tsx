@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pill, ArrowRight, AlertCircle, ShieldCheck, UserRound, MessageCircle } from 'lucide-react';
+import { Pill, ArrowRight, AlertCircle, ShieldCheck, UserRound, MessageCircle, ArrowLeft } from 'lucide-react';
 import { useCustomerAuth } from '@/lib/customer-auth';
 import { useAdminAuth } from '@/lib/admin-auth';
 import { useAppSettings, buildWhatsAppLink, usePrimePlans } from '@/lib/settings';
@@ -47,7 +47,18 @@ export function CustomerLogin({ navigate, onAdminLogin }: Props) {
   const whatsAppLink = buildWhatsAppLink(settings, 'Hello! I would like to create a new Pharmos Membership account. Please guide me through the registration process.');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pharmos-500 to-pharmos-800 flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-pharmos-500 to-pharmos-800 flex items-center justify-center px-4 py-8 relative">
+      <a
+        href="https://www.pharmos.in"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute top-4 left-4 flex items-center gap-1 text-xs font-medium text-white/70 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={14} />
+        <span className="hidden sm:inline">Back to Pharmos</span>
+        <span className="sm:hidden">Back</span>
+      </a>
+
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/5" />
         <div className="absolute -bottom-32 left-10 h-80 w-80 rounded-full bg-gold-400/10" />

@@ -15,6 +15,7 @@ import {
   Stethoscope,
   FilePlus2,
   BadgeCheck,
+  ArrowLeft,
 } from 'lucide-react';
 
 export type CustomerPage =
@@ -168,6 +169,17 @@ export function CustomerLayout({ page, navigate, customerName, membershipId, pla
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:px-8">
+          <a
+            href="https://www.pharmos.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-pharmos-600 transition-colors"
+          >
+            <ArrowLeft size={14} />
+            <span className="hidden sm:inline">Back to Pharmos</span>
+            <span className="sm:hidden">Back</span>
+          </a>
+
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
